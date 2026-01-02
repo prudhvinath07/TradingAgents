@@ -33,7 +33,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_news,
     get_insider_sentiment,
     get_insider_transactions,
-    get_global_news
+    get_global_news,
 )
 
 from .conditional_logic import ConditionalLogic
@@ -71,25 +71,67 @@ class TradingAgentsGraph:
             exist_ok=True,
         )
 
-        # Initialize LLMs
-        if self.config["llm_provider"].lower() == "openai" or self.config["llm_provider"] == "ollama" or self.config["llm_provider"] == "openrouter":
-            self.deep_thinking_llm = ChatOpenAI(model=self.config["deep_think_llm"], base_url=self.config["backend_url"])
-            self.quick_thinking_llm = ChatOpenAI(model=self.config["quick_think_llm"], base_url=self.config["backend_url"])
-        elif self.config["llm_provider"].lower() == "anthropic":
-            self.deep_thinking_llm = ChatAnthropic(model=self.config["deep_think_llm"], base_url=self.config["backend_url"])
-            self.quick_thinking_llm = ChatAnthropic(model=self.config["quick_think_llm"], base_url=self.config["backend_url"])
-        elif self.config["llm_provider"].lower() == "google":
-            self.deep_thinking_llm = ChatGoogleGenerativeAI(model=self.config["deep_think_llm"])
-            self.quick_thinking_llm = ChatGoogleGenerativeAI(model=self.config["quick_think_llm"])
+        # Initialize LLMs based on provider
+        llm_provider = self.config["llm_provider"].lower()
+
+        if llm_provider == "openai":
+            self.deep_thinking_llm = ChatOpenAI(
+                model=self.config["deep_think_llm"], base_url=self.config["backend_url"]
+            )
+            self.quick_thinking_llm = ChatOpenAI(
+                model=self.config["quick_think_llm"],
+                base_url=self.config["backend_url"],
+            )
+        elif llm_provider == "ollama":
+            # For Ollama Cloud, use OLLAMA_API_KEY; for local, use dummy key
+            api_key = os.getenv("OLLAMA_API_KEY", "ollama")
+            self.deep_thinking_llm = ChatOpenAI(
+                model=self.config["deep_think_llm"],
+                base_url=self.config["backend_url"],
+                api_key=api_key,
+            )
+            self.quick_thinking_llm = ChatOpenAI(
+                model=self.config["quick_think_llm"],
+                base_url=self.config["backend_url"],
+                api_key=api_key,
+            )
+        elif llm_provider == "openrouter":
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            self.deep_thinking_llm = ChatOpenAI(
+                model=self.config["deep_think_llm"],
+                base_url=self.config["backend_url"],
+                api_key=api_key,
+            )
+            self.quick_thinking_llm = ChatOpenAI(
+                model=self.config["quick_think_llm"],
+                base_url=self.config["backend_url"],
+                api_key=api_key,
+            )
+        elif llm_provider == "anthropic":
+            self.deep_thinking_llm = ChatAnthropic(model=self.config["deep_think_llm"])
+            self.quick_thinking_llm = ChatAnthropic(
+                model=self.config["quick_think_llm"]
+            )
+        elif llm_provider == "google":
+            self.deep_thinking_llm = ChatGoogleGenerativeAI(
+                model=self.config["deep_think_llm"]
+            )
+            self.quick_thinking_llm = ChatGoogleGenerativeAI(
+                model=self.config["quick_think_llm"]
+            )
         else:
             raise ValueError(f"Unsupported LLM provider: {self.config['llm_provider']}")
-        
+
         # Initialize memories
         self.bull_memory = FinancialSituationMemory("bull_memory", self.config)
         self.bear_memory = FinancialSituationMemory("bear_memory", self.config)
         self.trader_memory = FinancialSituationMemory("trader_memory", self.config)
-        self.invest_judge_memory = FinancialSituationMemory("invest_judge_memory", self.config)
-        self.risk_manager_memory = FinancialSituationMemory("risk_manager_memory", self.config)
+        self.invest_judge_memory = FinancialSituationMemory(
+            "invest_judge_memory", self.config
+        )
+        self.risk_manager_memory = FinancialSituationMemory(
+            "risk_manager_memory", self.config
+        )
 
         # Create tool nodes
         self.tool_nodes = self._create_tool_nodes()

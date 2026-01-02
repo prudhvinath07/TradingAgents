@@ -1,7 +1,7 @@
 # TradingAgents/graph/setup.py
 
 from typing import Dict, Any
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.graph import END, StateGraph, START
 from langgraph.prebuilt import ToolNode
 
@@ -16,8 +16,8 @@ class GraphSetup:
 
     def __init__(
         self,
-        quick_thinking_llm: ChatOpenAI,
-        deep_thinking_llm: ChatOpenAI,
+        quick_thinking_llm: BaseChatModel,
+        deep_thinking_llm: BaseChatModel,
         tool_nodes: Dict[str, ToolNode],
         bull_memory,
         bear_memory,
@@ -58,9 +58,7 @@ class GraphSetup:
         tool_nodes = {}
 
         if "market" in selected_analysts:
-            analyst_nodes["market"] = create_market_analyst(
-                self.quick_thinking_llm
-            )
+            analyst_nodes["market"] = create_market_analyst(self.quick_thinking_llm)
             delete_nodes["market"] = create_msg_delete()
             tool_nodes["market"] = self.tool_nodes["market"]
 
@@ -72,9 +70,7 @@ class GraphSetup:
             tool_nodes["social"] = self.tool_nodes["social"]
 
         if "news" in selected_analysts:
-            analyst_nodes["news"] = create_news_analyst(
-                self.quick_thinking_llm
-            )
+            analyst_nodes["news"] = create_news_analyst(self.quick_thinking_llm)
             delete_nodes["news"] = create_msg_delete()
             tool_nodes["news"] = self.tool_nodes["news"]
 
@@ -147,7 +143,7 @@ class GraphSetup:
 
             # Connect to next analyst or to Bull Researcher if this is the last analyst
             if i < len(selected_analysts) - 1:
-                next_analyst = f"{selected_analysts[i+1].capitalize()} Analyst"
+                next_analyst = f"{selected_analysts[i + 1].capitalize()} Analyst"
                 workflow.add_edge(current_clear, next_analyst)
             else:
                 workflow.add_edge(current_clear, "Bull Researcher")

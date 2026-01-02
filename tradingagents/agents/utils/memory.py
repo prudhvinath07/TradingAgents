@@ -1,29 +1,114 @@
 import chromadb
 from chromadb.config import Settings
-from openai import OpenAI
+from typing import List, Dict, Any, Callable
 
 
 class FinancialSituationMemory:
-    def __init__(self, name, config):
-        if config["backend_url"] == "http://localhost:11434/v1":
-            self.embedding = "nomic-embed-text"
-        else:
-            self.embedding = "text-embedding-3-small"
-        self.client = OpenAI(base_url=config["backend_url"])
+    """Memory system for storing and retrieving financial situations and recommendations.
+
+    Supports multiple embedding providers:
+    - local: Uses sentence-transformers (all-MiniLM-L6-v2 by default)
+    - openai: Uses OpenAI's embedding API
+    - google: Uses Google's Generative AI embedding API
+    """
+
+    def __init__(self, name: str, config: Dict[str, Any]):
+        self.config = config
+        self.embedding_provider = config.get("embedding_provider", "local")
+        self.embedding_model_name = config.get("embedding_model", "all-MiniLM-L6-v2")
+
+        # Initialize embedding model based on provider
+        self._init_embedding_model()
+
+        # ChromaDB setup
         self.chroma_client = chromadb.Client(Settings(allow_reset=True))
         self.situation_collection = self.chroma_client.create_collection(name=name)
 
-    def get_embedding(self, text):
-        """Get OpenAI embedding for a text"""
-        
-        response = self.client.embeddings.create(
-            model=self.embedding, input=text
+    def _init_embedding_model(self) -> None:
+        """Initialize the embedding model based on provider config."""
+        if self.embedding_provider == "local":
+            self._init_local_embeddings()
+        elif self.embedding_provider == "openai":
+            self._init_openai_embeddings()
+        elif self.embedding_provider == "google":
+            self._init_google_embeddings()
+        else:
+            raise ValueError(
+                f"Unsupported embedding provider: {self.embedding_provider}"
+            )
+
+    def _init_local_embeddings(self) -> None:
+        """Initialize local sentence-transformers model."""
+        from sentence_transformers import SentenceTransformer
+
+        self._embedding_model = SentenceTransformer(self.embedding_model_name)
+        self._get_embedding_func: Callable[[str], List[float]] = (
+            self._get_embedding_local
+        )
+
+    def _init_openai_embeddings(self) -> None:
+        """Initialize OpenAI embedding client."""
+        from openai import OpenAI
+
+        # Handle Ollama local backend
+        backend_url = self.config.get("backend_url", "https://api.openai.com/v1")
+        if backend_url == "http://localhost:11434/v1":
+            self.embedding_model_name = "nomic-embed-text"
+        elif self.embedding_model_name == "all-MiniLM-L6-v2":
+            # Default to OpenAI model if local model name is still set
+            self.embedding_model_name = "text-embedding-3-small"
+
+        self._openai_client = OpenAI(base_url=backend_url)
+        self._get_embedding_func = self._get_embedding_openai
+
+    def _init_google_embeddings(self) -> None:
+        """Initialize Google Generative AI embedding client."""
+        from google import genai
+
+        # Initialize client (uses GOOGLE_API_KEY env var by default)
+        self._google_client = genai.Client()
+
+        # Default to Google's embedding model if local model name is set
+        if self.embedding_model_name == "all-MiniLM-L6-v2":
+            self.embedding_model_name = "text-embedding-004"
+
+        self._get_embedding_func = self._get_embedding_google
+
+    def _get_embedding_local(self, text: str) -> List[float]:
+        """Get embedding using local SentenceTransformer model."""
+        return self._embedding_model.encode(text).tolist()
+
+    def _get_embedding_openai(self, text: str) -> List[float]:
+        """Get embedding using OpenAI API."""
+        response = self._openai_client.embeddings.create(
+            model=self.embedding_model_name, input=text
         )
         return response.data[0].embedding
 
-    def add_situations(self, situations_and_advice):
-        """Add financial situations and their corresponding advice. Parameter is a list of tuples (situation, rec)"""
+    def _get_embedding_google(self, text: str) -> List[float]:
+        """Get embedding using Google Generative AI."""
+        response = self._google_client.models.embed_content(
+            model=self.embedding_model_name, contents=text
+        )
+        return list(response.embeddings[0].values)
 
+    def get_embedding(self, text: str) -> List[float]:
+        """Get embedding for text using configured provider.
+
+        Args:
+            text: The text to embed
+
+        Returns:
+            List of floats representing the embedding vector
+        """
+        return self._get_embedding_func(text)
+
+    def add_situations(self, situations_and_advice: List[tuple]) -> None:
+        """Add financial situations and their corresponding advice.
+
+        Args:
+            situations_and_advice: List of tuples (situation, recommendation)
+        """
         situations = []
         advice = []
         ids = []
@@ -44,8 +129,18 @@ class FinancialSituationMemory:
             ids=ids,
         )
 
-    def get_memories(self, current_situation, n_matches=1):
-        """Find matching recommendations using OpenAI embeddings"""
+    def get_memories(
+        self, current_situation: str, n_matches: int = 1
+    ) -> List[Dict[str, Any]]:
+        """Find matching recommendations based on current situation.
+
+        Args:
+            current_situation: Description of the current financial situation
+            n_matches: Number of similar situations to retrieve
+
+        Returns:
+            List of dictionaries with matched_situation, recommendation, and similarity_score
+        """
         query_embedding = self.get_embedding(current_situation)
 
         results = self.situation_collection.query(
@@ -68,8 +163,13 @@ class FinancialSituationMemory:
 
 
 if __name__ == "__main__":
-    # Example usage
-    matcher = FinancialSituationMemory()
+    # Example usage with local embeddings (default)
+    example_config = {
+        "embedding_provider": "local",
+        "embedding_model": "all-MiniLM-L6-v2",
+    }
+
+    matcher = FinancialSituationMemory("test_memory", example_config)
 
     # Example data
     example_data = [

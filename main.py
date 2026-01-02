@@ -8,16 +8,32 @@ load_dotenv()
 
 # Create a custom config
 config = DEFAULT_CONFIG.copy()
-config["deep_think_llm"] = "gpt-4o-mini"  # Use a different model
-config["quick_think_llm"] = "gpt-4o-mini"  # Use a different model
-config["max_debate_rounds"] = 1  # Increase debate rounds
+
+# LLM Configuration - Using Ollama Cloud (default)
+# Options for llm_provider: "ollama", "google", "openai", "anthropic", "openrouter"
+config["llm_provider"] = "ollama"
+config["deep_think_llm"] = (
+    "gpt-oss:20b"  # Ollama Cloud models: gpt-oss:20b, gpt-oss:120b, deepseek-v3.2, qwen3-next:80b
+)
+config["quick_think_llm"] = "gpt-oss:20b"
+config["backend_url"] = (
+    "https://ollama.com/v1"  # Use http://localhost:11434/v1 for local Ollama
+)
+
+# Embedding Configuration - Using local MiniLM (default)
+# Options for embedding_provider: "local", "openai", "google"
+config["embedding_provider"] = "local"
+config["embedding_model"] = "all-MiniLM-L6-v2"  # Fast, free, runs locally
+
+# Debate settings
+config["max_debate_rounds"] = 1
 
 # Configure data vendors (default uses yfinance and alpha_vantage)
 config["data_vendors"] = {
-    "core_stock_apis": "yfinance",           # Options: yfinance, alpha_vantage, local
-    "technical_indicators": "yfinance",      # Options: yfinance, alpha_vantage, local
-    "fundamental_data": "alpha_vantage",     # Options: openai, alpha_vantage, local
-    "news_data": "alpha_vantage",            # Options: openai, alpha_vantage, google, local
+    "core_stock_apis": "yfinance",  # Options: yfinance, alpha_vantage, local
+    "technical_indicators": "yfinance",  # Options: yfinance, alpha_vantage, local
+    "fundamental_data": "alpha_vantage",  # Options: openai, alpha_vantage, local
+    "news_data": "alpha_vantage",  # Options: openai, alpha_vantage, google, local
 }
 
 # Initialize with custom config
