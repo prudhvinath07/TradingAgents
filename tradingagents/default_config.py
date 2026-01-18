@@ -9,10 +9,13 @@ DEFAULT_CONFIG = {
         "dataflows/data_cache",
     ),
     # LLM settings
-    "llm_provider": "ollama",  # Options: openai, google, anthropic, ollama, openrouter
-    "deep_think_llm": "gpt-oss:20b",  # Ollama Cloud model
-    "quick_think_llm": "gpt-oss:20b",  # Ollama Cloud model
-    "backend_url": "https://ollama.com/v1",  # Ollama Cloud endpoint (use http://localhost:11434/v1 for local)
+    "llm_provider": "google",  # Options: openai, google, anthropic, ollama, openrouter
+    "deep_think_llm": "gemini-2.5-pro",  # Google Gemini Pro (state-of-the-art reasoning)
+    "quick_think_llm": "gemini-2.5-flash",  # Google Gemini Flash (fast and efficient)
+    "backend_url": None,  # Not needed for Google (uses GOOGLE_API_KEY env var)
+    # LLM behavior settings
+    "llm_temperature": 0.3,  # Lower = more deterministic, reduces hallucinations
+    "llm_max_tokens": 4096,  # Prevent runaway generation loops
     # Embedding settings
     "embedding_provider": "local",  # Options: local, openai, google
     "embedding_model": "all-MiniLM-L6-v2",  # Local: all-MiniLM-L6-v2, OpenAI: text-embedding-3-small, Google: models/text-embedding-004

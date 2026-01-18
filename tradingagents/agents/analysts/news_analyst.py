@@ -1,8 +1,6 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-import time
-import json
 from tradingagents.agents.utils.agent_utils import get_news, get_global_news
-from tradingagents.dataflows.config import get_config
+from tradingagents.agents.utils.prompt_templates import get_analyst_system_prompt
 
 
 def create_news_analyst(llm):
@@ -15,38 +13,61 @@ def create_news_analyst(llm):
             get_global_news,
         ]
 
-        system_message = (
-            "You are a news researcher tasked with analyzing recent news and trends over the past week. Please write a comprehensive report of the current state of the world that is relevant for trading and macroeconomics. Use the available tools: get_news(query, start_date, end_date) for company-specific or targeted news searches, and get_global_news(curr_date, look_back_days, limit) for broader macroeconomic news. Do not simply state the trends are mixed, provide detailed and finegrained analysis and insights that may help traders make decisions."
-            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
+        specific_instructions = """
+You are a NEWS ANALYST tasked with analyzing recent news and macroeconomic trends.
+
+AVAILABLE TOOLS:
+- `get_news(query, start_date, end_date)`: Search for company-specific or targeted news
+- `get_global_news(curr_date, look_back_days, limit)`: Get broader macroeconomic news
+
+WORKFLOW:
+1. Use `get_news` to search for company-specific news and developments
+2. Use `get_global_news` to get macroeconomic context
+3. Analyze the news data returned by the tools
+
+YOUR RESPONSIBILITIES:
+1. Summarize key news affecting the company
+2. Identify market-moving events
+3. Assess macroeconomic factors (Fed policy, sector trends, etc.)
+4. Evaluate potential impact on stock price
+
+CRITICAL DATA RULES:
+- ONLY report news that appears in the tool output
+- If a tool returns an error or "[DATA UNAVAILABLE]", state this clearly
+- Do NOT fabricate news stories or events
+- Do NOT use your training knowledge to fill in news gaps
+- If global news tool fails, acknowledge the gap
+
+REPORT STRUCTURE:
+1. Company-Specific News (from get_news tool)
+2. Macroeconomic Context (from get_global_news tool)
+3. Sentiment Assessment based on the news
+4. Potential Market Impact
+5. Markdown summary table with news items FROM TOOLS ONLY
+
+If any tool fails, explicitly state: "[DATA UNAVAILABLE] for [news type]"
+"""
+
+        tool_names = ", ".join([tool.name for tool in tools])
+        system_prompt = get_analyst_system_prompt(
+            analyst_type="news",
+            current_date=current_date,
+            ticker=ticker,
+            tool_names=tool_names,
+            specific_instructions=specific_instructions,
         )
 
         prompt = ChatPromptTemplate.from_messages(
             [
-                (
-                    "system",
-                    "You are a helpful AI assistant, collaborating with other assistants."
-                    " Use the provided tools to progress towards answering the question."
-                    " If you are unable to fully answer, that's OK; another assistant with different tools"
-                    " will help where you left off. Execute what you can to make progress."
-                    " If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable,"
-                    " prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop."
-                    " You have access to the following tools: {tool_names}.\n{system_message}"
-                    "For your reference, the current date is {current_date}. We are looking at the company {ticker}",
-                ),
+                ("system", system_prompt),
                 MessagesPlaceholder(variable_name="messages"),
             ]
         )
-
-        prompt = prompt.partial(system_message=system_message)
-        prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
-        prompt = prompt.partial(current_date=current_date)
-        prompt = prompt.partial(ticker=ticker)
 
         chain = prompt | llm.bind_tools(tools)
         result = chain.invoke(state["messages"])
 
         report = ""
-
         if len(result.tool_calls) == 0:
             report = result.content
 

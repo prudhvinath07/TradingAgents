@@ -2,6 +2,11 @@ import functools
 import time
 import json
 
+from tradingagents.agents.utils.prompt_templates import (
+    DATA_VALIDATION_REMINDER,
+    PRICE_GROUNDING_INSTRUCTIONS,
+)
+
 
 def create_trader(llm, memory):
     def trader_node(state, name):
@@ -30,7 +35,19 @@ def create_trader(llm, memory):
         messages = [
             {
                 "role": "system",
-                "content": f"""You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. End with a firm decision and always conclude your response with 'FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**' to confirm your recommendation. Do not forget to utilize lessons from past decisions to learn from your mistakes. Here is some reflections from similar situatiosn you traded in and the lessons learned: {past_memory_str}""",
+                "content": f"""You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. End with a firm decision and always conclude your response with 'FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**' to confirm your recommendation.
+
+{DATA_VALIDATION_REMINDER}
+
+{PRICE_GROUNDING_INSTRUCTIONS}
+
+Do not forget to utilize lessons from past decisions to learn from your mistakes. Here is some reflections from similar situations you traded in and the lessons learned: {past_memory_str}
+
+CRITICAL REMINDERS:
+- Extract the CURRENT PRICE from the investment plan/market data before making any recommendations.
+- All stop-loss and target prices MUST be calculated relative to the actual current price.
+- If you cannot find the current price in the data, state this explicitly.
+- Do NOT use prices from your training knowledge - they are outdated.""",
             },
             context,
         ]

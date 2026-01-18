@@ -9,16 +9,20 @@ load_dotenv()
 # Create a custom config
 config = DEFAULT_CONFIG.copy()
 
-# LLM Configuration - Using Ollama Cloud (default)
+# LLM Configuration - Using Ollama Cloud with DeepSeek
 # Options for llm_provider: "ollama", "google", "openai", "anthropic", "openrouter"
 config["llm_provider"] = "ollama"
-config["deep_think_llm"] = (
-    "gpt-oss:20b"  # Ollama Cloud models: gpt-oss:20b, gpt-oss:120b, deepseek-v3.2, qwen3-next:80b
+config["deep_think_llm"] = "deepseek-v3.2"  # Powerful reasoning model
+config["quick_think_llm"] = (
+    "deepseek-v3.2"  # Ollama Cloud models: deepseek-v3.2, gpt-oss:120b, qwen3-next:80b
 )
-config["quick_think_llm"] = "gpt-oss:20b"
 config["backend_url"] = (
     "https://ollama.com/v1"  # Use http://localhost:11434/v1 for local Ollama
 )
+
+# LLM behavior settings (reduce hallucinations and loops)
+config["llm_temperature"] = 0.3  # Lower = more deterministic
+config["llm_max_tokens"] = 4096  # Prevent runaway generation
 
 # Embedding Configuration - Using local MiniLM (default)
 # Options for embedding_provider: "local", "openai", "google"

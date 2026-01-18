@@ -2,6 +2,8 @@ from langchain_core.messages import AIMessage
 import time
 import json
 
+from tradingagents.agents.utils.prompt_templates import DATA_VALIDATION_REMINDER
+
 
 def create_bear_researcher(llm, memory):
     def bear_node(state) -> dict:
@@ -24,6 +26,8 @@ def create_bear_researcher(llm, memory):
 
         prompt = f"""You are a Bear Analyst making the case against investing in the stock. Your goal is to present a well-reasoned argument emphasizing risks, challenges, and negative indicators. Leverage the provided research and data to highlight potential downsides and counter bullish arguments effectively.
 
+{DATA_VALIDATION_REMINDER}
+
 Key points to focus on:
 
 - Risks and Challenges: Highlight factors like market saturation, financial instability, or macroeconomic threats that could hinder the stock's performance.
@@ -41,7 +45,10 @@ Company fundamentals report: {fundamentals_report}
 Conversation history of the debate: {history}
 Last bull argument: {current_response}
 Reflections from similar situations and lessons learned: {past_memory_str}
+
 Use this information to deliver a compelling bear argument, refute the bull's claims, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. You must also address reflections and learn from lessons and mistakes you made in the past.
+
+CRITICAL: Only cite numbers and statistics that appear in the reports above. If a report says "[DATA UNAVAILABLE]", acknowledge this gap. Do not invent or estimate missing data.
 """
 
         response = llm.invoke(prompt)

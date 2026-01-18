@@ -41,6 +41,7 @@ from .setup import GraphSetup
 from .propagation import Propagator
 from .reflection import Reflector
 from .signal_processing import SignalProcessor
+from .validation import OutputValidator, validate_agent_output
 
 
 class TradingAgentsGraph:
@@ -73,14 +74,21 @@ class TradingAgentsGraph:
 
         # Initialize LLMs based on provider
         llm_provider = self.config["llm_provider"].lower()
+        temperature = self.config.get("llm_temperature", 0.3)
+        max_tokens = self.config.get("llm_max_tokens", 4096)
 
         if llm_provider == "openai":
             self.deep_thinking_llm = ChatOpenAI(
-                model=self.config["deep_think_llm"], base_url=self.config["backend_url"]
+                model=self.config["deep_think_llm"],
+                base_url=self.config["backend_url"],
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
             self.quick_thinking_llm = ChatOpenAI(
                 model=self.config["quick_think_llm"],
                 base_url=self.config["backend_url"],
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
         elif llm_provider == "ollama":
             # For Ollama Cloud, use OLLAMA_API_KEY; for local, use dummy key
@@ -89,11 +97,15 @@ class TradingAgentsGraph:
                 model=self.config["deep_think_llm"],
                 base_url=self.config["backend_url"],
                 api_key=api_key,
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
             self.quick_thinking_llm = ChatOpenAI(
                 model=self.config["quick_think_llm"],
                 base_url=self.config["backend_url"],
                 api_key=api_key,
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
         elif llm_provider == "openrouter":
             api_key = os.getenv("OPENROUTER_API_KEY")
@@ -101,23 +113,37 @@ class TradingAgentsGraph:
                 model=self.config["deep_think_llm"],
                 base_url=self.config["backend_url"],
                 api_key=api_key,
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
             self.quick_thinking_llm = ChatOpenAI(
                 model=self.config["quick_think_llm"],
                 base_url=self.config["backend_url"],
                 api_key=api_key,
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
         elif llm_provider == "anthropic":
-            self.deep_thinking_llm = ChatAnthropic(model=self.config["deep_think_llm"])
+            self.deep_thinking_llm = ChatAnthropic(
+                model=self.config["deep_think_llm"],
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
             self.quick_thinking_llm = ChatAnthropic(
-                model=self.config["quick_think_llm"]
+                model=self.config["quick_think_llm"],
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
         elif llm_provider == "google":
             self.deep_thinking_llm = ChatGoogleGenerativeAI(
-                model=self.config["deep_think_llm"]
+                model=self.config["deep_think_llm"],
+                temperature=temperature,
+                max_output_tokens=max_tokens,
             )
             self.quick_thinking_llm = ChatGoogleGenerativeAI(
-                model=self.config["quick_think_llm"]
+                model=self.config["quick_think_llm"],
+                temperature=temperature,
+                max_output_tokens=max_tokens,
             )
         else:
             raise ValueError(f"Unsupported LLM provider: {self.config['llm_provider']}")
@@ -235,7 +261,11 @@ class TradingAgentsGraph:
         return final_state, self.process_signal(final_state["final_trade_decision"])
 
     def _log_state(self, trade_date, final_state):
-        """Log the final state to a JSON file."""
+        """Log the final state to a JSON file and validate outputs."""
+
+        # Validate key outputs for hallucination detection
+        validation_results = self._validate_outputs(trade_date, final_state)
+
         self.log_states_dict[str(trade_date)] = {
             "company_of_interest": final_state["company_of_interest"],
             "trade_date": final_state["trade_date"],
@@ -264,6 +294,7 @@ class TradingAgentsGraph:
             },
             "investment_plan": final_state["investment_plan"],
             "final_trade_decision": final_state["final_trade_decision"],
+            "validation_results": validation_results,
         }
 
         # Save to file
@@ -297,3 +328,53 @@ class TradingAgentsGraph:
     def process_signal(self, full_signal):
         """Process a signal to extract the core decision."""
         return self.signal_processor.process_signal(full_signal)
+
+    def _validate_outputs(self, trade_date, final_state) -> dict:
+        """Validate LLM outputs for hallucinations and generation issues.
+
+        Args:
+            trade_date: The analysis/trade date
+            final_state: The final state containing all agent outputs
+
+        Returns:
+            Dict with validation results and any warnings
+        """
+        results = {"overall_valid": True, "warnings": [], "agent_validations": {}}
+
+        # Collect tool outputs for comparison (the analyst reports contain tool data)
+        tool_outputs = {
+            "market_report": final_state.get("market_report", ""),
+            "sentiment_report": final_state.get("sentiment_report", ""),
+            "news_report": final_state.get("news_report", ""),
+            "fundamentals_report": final_state.get("fundamentals_report", ""),
+        }
+
+        # Validate key outputs
+        outputs_to_validate = {
+            "trader_decision": final_state.get("trader_investment_plan", ""),
+            "final_decision": final_state.get("final_trade_decision", ""),
+            "investment_plan": final_state.get("investment_plan", ""),
+        }
+
+        for output_name, output_text in outputs_to_validate.items():
+            if output_text:
+                validation = validate_agent_output(
+                    output=output_text,
+                    analysis_date=str(trade_date),
+                    tool_outputs=tool_outputs,
+                )
+                results["agent_validations"][output_name] = validation
+
+                if not validation["valid"]:
+                    results["overall_valid"] = False
+                    for warning in validation["warnings"]:
+                        warning_msg = f"[{output_name}] {warning}"
+                        results["warnings"].append(warning_msg)
+                        print(f"VALIDATION WARNING: {warning_msg}")
+
+        if results["overall_valid"]:
+            print("VALIDATION: All outputs passed validation checks")
+        else:
+            print(f"VALIDATION: Found {len(results['warnings'])} potential issues")
+
+        return results

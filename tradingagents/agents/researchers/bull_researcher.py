@@ -2,6 +2,8 @@ from langchain_core.messages import AIMessage
 import time
 import json
 
+from tradingagents.agents.utils.prompt_templates import DATA_VALIDATION_REMINDER
+
 
 def create_bull_researcher(llm, memory):
     def bull_node(state) -> dict:
@@ -24,6 +26,8 @@ def create_bull_researcher(llm, memory):
 
         prompt = f"""You are a Bull Analyst advocating for investing in the stock. Your task is to build a strong, evidence-based case emphasizing growth potential, competitive advantages, and positive market indicators. Leverage the provided research and data to address concerns and counter bearish arguments effectively.
 
+{DATA_VALIDATION_REMINDER}
+
 Key points to focus on:
 - Growth Potential: Highlight the company's market opportunities, revenue projections, and scalability.
 - Competitive Advantages: Emphasize factors like unique products, strong branding, or dominant market positioning.
@@ -39,7 +43,10 @@ Company fundamentals report: {fundamentals_report}
 Conversation history of the debate: {history}
 Last bear argument: {current_response}
 Reflections from similar situations and lessons learned: {past_memory_str}
+
 Use this information to deliver a compelling bull argument, refute the bear's concerns, and engage in a dynamic debate that demonstrates the strengths of the bull position. You must also address reflections and learn from lessons and mistakes you made in the past.
+
+CRITICAL: Only cite numbers and statistics that appear in the reports above. If a report says "[DATA UNAVAILABLE]", acknowledge this gap. Do not invent or estimate missing data.
 """
 
         response = llm.invoke(prompt)
