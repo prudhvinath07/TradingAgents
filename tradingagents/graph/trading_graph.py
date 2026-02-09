@@ -9,6 +9,7 @@ from typing import Dict, Any, Tuple, List, Optional
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_vertexai import ChatVertexAI
 
 from langgraph.prebuilt import ToolNode
 
@@ -142,6 +143,26 @@ class TradingAgentsGraph:
             )
             self.quick_thinking_llm = ChatGoogleGenerativeAI(
                 model=self.config["quick_think_llm"],
+                temperature=temperature,
+                max_output_tokens=max_tokens,
+            )
+        elif llm_provider == "vertex":
+            # Vertex AI uses Application Default Credentials (ADC)
+            # Run: gcloud auth application-default login
+            project = self.config.get("gcp_project_id")
+            location = self.config.get("gcp_location", "us-central1")
+
+            self.deep_thinking_llm = ChatVertexAI(
+                model_name=self.config["deep_think_llm"],
+                project=project,
+                location=location,
+                temperature=temperature,
+                max_output_tokens=max_tokens,
+            )
+            self.quick_thinking_llm = ChatVertexAI(
+                model_name=self.config["quick_think_llm"],
+                project=project,
+                location=location,
                 temperature=temperature,
                 max_output_tokens=max_tokens,
             )

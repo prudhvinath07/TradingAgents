@@ -19,8 +19,12 @@ from .y_finance import (
     get_cashflow as get_yfinance_cashflow,
     get_income_statement as get_yfinance_income_statement,
     get_insider_transactions as get_yfinance_insider_transactions,
+    get_live_price,
+    get_latest_price_intraday,
+    get_fundamentals as get_yfinance_fundamentals,
 )
-from .google import get_google_news
+from .google import get_google_news, get_google_global_news
+from .reddit_mcp import get_reddit_global_news as get_reddit_mcp_global_news
 from .openai import (
     get_stock_news_openai,
     get_global_news_openai,
@@ -90,6 +94,7 @@ VENDOR_METHODS = {
     # fundamental_data
     "get_fundamentals": {
         "alpha_vantage": get_alpha_vantage_fundamentals,
+        "yfinance": get_yfinance_fundamentals,
         "openai": get_fundamentals_openai,
     },
     "get_balance_sheet": {
@@ -115,6 +120,8 @@ VENDOR_METHODS = {
         "local": [get_finnhub_news, get_reddit_company_news, get_google_news],
     },
     "get_global_news": {
+        "google": get_google_global_news,
+        "reddit": get_reddit_mcp_global_news,
         "openai": get_global_news_openai,
         "local": get_reddit_global_news,
     },

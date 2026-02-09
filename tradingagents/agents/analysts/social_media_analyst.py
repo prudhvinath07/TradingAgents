@@ -1,5 +1,5 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from tradingagents.agents.utils.agent_utils import get_news
+from tradingagents.agents.utils.agent_utils import get_news, get_social_media_sentiment
 from tradingagents.agents.utils.prompt_templates import get_analyst_system_prompt
 
 
@@ -10,23 +10,25 @@ def create_social_media_analyst(llm):
 
         tools = [
             get_news,
+            get_social_media_sentiment,
         ]
 
         specific_instructions = """
 You are a SOCIAL MEDIA & SENTIMENT ANALYST tasked with analyzing public sentiment and social discussions.
 
 AVAILABLE TOOLS:
-- `get_news(query, start_date, end_date)`: Search for company-specific news and social media discussions
+- `get_news(ticker, start_date, end_date)`: Search for company-specific news
+- `get_social_media_sentiment(ticker, curr_date, look_back_days)`: Get Reddit sentiment from trading subreddits (wallstreetbets, stocks, IndiaInvestments, etc.)
 
 WORKFLOW:
-1. Use `get_news` to search for social media discussions, sentiment data, and public opinion
-2. Search for various angles: company name, ticker, products, CEO, competitors
-3. Analyze the sentiment data returned by the tools
+1. FIRST use `get_social_media_sentiment` to get Reddit discussions and sentiment
+2. THEN use `get_news` to supplement with news coverage
+3. Analyze both sources to form a complete sentiment picture
 
 YOUR RESPONSIBILITIES:
 1. Assess overall public sentiment (bullish/bearish/neutral)
 2. Identify trending topics and discussions
-3. Gauge retail investor sentiment
+3. Gauge retail investor sentiment from Reddit
 4. Spot potential sentiment-driven price catalysts
 
 CRITICAL DATA RULES:
@@ -38,10 +40,11 @@ CRITICAL DATA RULES:
 
 REPORT STRUCTURE:
 1. Overall Sentiment Summary (from tool data)
-2. Key Discussion Topics (from tool data)
-3. Notable Social Media Mentions (from tool data)
-4. Sentiment Trend Assessment
-5. Markdown summary table with sentiment indicators FROM TOOLS ONLY
+2. Reddit Sentiment (from get_social_media_sentiment)
+3. News Coverage (from get_news)
+4. Key Discussion Topics
+5. Sentiment Trend Assessment
+6. Markdown summary table with sentiment indicators FROM TOOLS ONLY
 
 If the tool fails, explicitly state: "[DATA UNAVAILABLE] for social media/sentiment data"
 """

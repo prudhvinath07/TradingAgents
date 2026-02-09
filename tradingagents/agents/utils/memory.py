@@ -10,6 +10,7 @@ class FinancialSituationMemory:
     - local: Uses sentence-transformers (all-MiniLM-L6-v2 by default)
     - openai: Uses OpenAI's embedding API
     - google: Uses Google's Generative AI embedding API
+    - vertex: Uses Google Cloud Vertex AI embedding API
     """
 
     def __init__(self, name: str, config: Dict[str, Any]):
@@ -32,6 +33,8 @@ class FinancialSituationMemory:
             self._init_openai_embeddings()
         elif self.embedding_provider == "google":
             self._init_google_embeddings()
+        elif self.embedding_provider == "vertex":
+            self._init_vertex_embeddings()
         else:
             raise ValueError(
                 f"Unsupported embedding provider: {self.embedding_provider}"
@@ -74,6 +77,24 @@ class FinancialSituationMemory:
 
         self._get_embedding_func = self._get_embedding_google
 
+    def _init_vertex_embeddings(self) -> None:
+        """Initialize Vertex AI embedding client."""
+        from langchain_google_vertexai import VertexAIEmbeddings
+
+        project = self.config.get("gcp_project_id")
+        location = self.config.get("gcp_location", "us-central1")
+
+        # Default to Vertex AI's embedding model if local model name is set
+        if self.embedding_model_name == "all-MiniLM-L6-v2":
+            self.embedding_model_name = "textembedding-gecko@003"
+
+        self._vertex_embeddings = VertexAIEmbeddings(
+            model_name=self.embedding_model_name,
+            project=project,
+            location=location,
+        )
+        self._get_embedding_func = self._get_embedding_vertex
+
     def _get_embedding_local(self, text: str) -> List[float]:
         """Get embedding using local SentenceTransformer model."""
         return self._embedding_model.encode(text).tolist()
@@ -91,6 +112,10 @@ class FinancialSituationMemory:
             model=self.embedding_model_name, contents=text
         )
         return list(response.embeddings[0].values)
+
+    def _get_embedding_vertex(self, text: str) -> List[float]:
+        """Get embedding using Vertex AI."""
+        return self._vertex_embeddings.embed_query(text)
 
     def get_embedding(self, text: str) -> List[float]:
         """Get embedding for text using configured provider.

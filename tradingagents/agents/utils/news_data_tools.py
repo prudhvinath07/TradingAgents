@@ -1,6 +1,7 @@
 from langchain_core.tools import tool
 from typing import Annotated
 from tradingagents.dataflows.interface import route_to_vendor
+from tradingagents.dataflows.reddit_direct import get_reddit_stock_sentiment as _get_reddit_sentiment
 
 @tool
 def get_news(
@@ -19,6 +20,26 @@ def get_news(
         str: A formatted string containing news data
     """
     return route_to_vendor("get_news", ticker, start_date, end_date)
+
+
+@tool
+def get_social_media_sentiment(
+    ticker: Annotated[str, "Ticker symbol"],
+    curr_date: Annotated[str, "Current date in yyyy-mm-dd format"],
+    look_back_days: Annotated[int, "Number of days to look back"] = 7,
+) -> str:
+    """
+    Retrieve social media sentiment for a stock from Reddit.
+    Searches trading subreddits like wallstreetbets, stocks, IndiaInvestments, etc.
+    Args:
+        ticker (str): Ticker symbol (e.g., 'AAPL', 'GOLDBEES.NS')
+        curr_date (str): Current date in yyyy-mm-dd format
+        look_back_days (int): Number of days to look back (default 7)
+    Returns:
+        str: Formatted Reddit posts with sentiment analysis
+    """
+    return _get_reddit_sentiment(ticker, curr_date, look_back_days, limit=10)
+
 
 @tool
 def get_global_news(

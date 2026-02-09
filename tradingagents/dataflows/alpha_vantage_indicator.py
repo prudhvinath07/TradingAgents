@@ -14,7 +14,7 @@ def get_indicator(
 
     Args:
         symbol: ticker symbol of the company
-        indicator: technical indicator to get the analysis and report of
+        indicator: technical indicator to get the analysis and report of (can be comma-separated for multiple)
         curr_date: The current trading date you are trading on, YYYY-mm-dd
         look_back_days: how many days to look back
         interval: Time interval (daily, weekly, monthly)
@@ -57,10 +57,45 @@ def get_indicator(
         "vwma": "VWMA: A moving average weighted by volume. Usage: Confirm trends by integrating price action with volume data. Tips: Watch for skewed results from volume spikes; use in combination with other volume analyses."
     }
 
-    if indicator not in supported_indicators:
+    # Handle comma-separated indicators (LLM may pass multiple at once)
+    indicators_to_process = [ind.strip() for ind in indicator.split(",")]
+
+    # Validate all indicators first
+    invalid_indicators = [ind for ind in indicators_to_process if ind not in supported_indicators]
+    if invalid_indicators:
         raise ValueError(
-            f"Indicator {indicator} is not supported. Please choose from: {list(supported_indicators.keys())}"
+            f"Indicator {','.join(invalid_indicators)} is not supported. Please choose from: {list(supported_indicators.keys())}"
         )
+
+    # Process each indicator and collect results
+    all_results = []
+
+    for single_indicator in indicators_to_process:
+        result = _get_single_indicator(
+            symbol, single_indicator, curr_date, look_back_days,
+            interval, time_period, series_type,
+            supported_indicators, indicator_descriptions
+        )
+        all_results.append(result)
+
+    # Return all indicator results combined
+    return "\n\n---\n\n".join(all_results)
+
+
+def _get_single_indicator(
+    symbol: str,
+    indicator: str,
+    curr_date: str,
+    look_back_days: int,
+    interval: str,
+    time_period: int,
+    series_type: str,
+    supported_indicators: dict,
+    indicator_descriptions: dict
+) -> str:
+    """Process a single indicator and return its result string."""
+    from datetime import datetime
+    from dateutil.relativedelta import relativedelta
 
     curr_date_dt = datetime.strptime(curr_date, "%Y-%m-%d")
     before = curr_date_dt - relativedelta(days=look_back_days)
