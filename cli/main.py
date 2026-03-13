@@ -1099,6 +1099,22 @@ def run_analysis():
 
         update_display(layout)
 
+    # Offer conversational data exploration (outside the Live context)
+    if offer_data_chat():
+        from cli.data_chat import start_chat_session
+        start_chat_session(
+            final_state=final_state,
+            ticker=selections["ticker"],
+            analysis_date=selections["analysis_date"],
+            llm=graph.quick_thinking_llm,
+            console=console
+        )
+
+
+def offer_data_chat() -> bool:
+    """Ask user if they want to explore data conversationally."""
+    return typer.confirm("\nWould you like to chat with your analysis data?", default=True)
+
 
 @app.command()
 def analyze():

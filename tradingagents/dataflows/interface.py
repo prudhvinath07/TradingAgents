@@ -24,6 +24,10 @@ from .y_finance import (
     get_fundamentals as get_yfinance_fundamentals,
 )
 from .google import get_google_news, get_google_global_news
+from .vertex_grounding import (
+    get_vertex_grounded_news,
+    get_vertex_grounded_global_news,
+)
 from .reddit_mcp import get_reddit_global_news as get_reddit_mcp_global_news
 from .openai import (
     get_stock_news_openai,
@@ -117,10 +121,12 @@ VENDOR_METHODS = {
         "alpha_vantage": get_alpha_vantage_news,
         "openai": get_stock_news_openai,
         "google": get_google_news,
+        "vertex": get_vertex_grounded_news,
         "local": [get_finnhub_news, get_reddit_company_news, get_google_news],
     },
     "get_global_news": {
         "google": get_google_global_news,
+        "vertex": get_vertex_grounded_global_news,
         "reddit": get_reddit_mcp_global_news,
         "openai": get_global_news_openai,
         "local": get_reddit_global_news,
